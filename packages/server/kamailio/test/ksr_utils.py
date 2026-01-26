@@ -44,6 +44,7 @@ def ksr_utils_init(_mock_data):
     _mock_data['htable']['sht_seti'] = sht_seti
     _mock_data['']['is_dsturiset'] = is_dsturiset
     _mock_data['']['is_INVITE'] = is_invite
+    _mock_data['']['is_INFO'] = is_info
     _mock_data['']['is_KDMQ'] = is_kdmq
     _mock_data['']['is_ACK'] = is_ack
     _mock_data['']['is_BYE'] = is_bye
@@ -68,6 +69,7 @@ def ksr_utils_init(_mock_data):
     _mock_data['hdr']['append'] = hdr_append
     _mock_data['hdr']['append_to_reply'] = rpl_hdr_append
     _mock_data['hdr']['remove'] = hdr_remove
+    _mock_data['hdr']['rmappend'] = rmappend
     _mock_data['hdr']['get'] = hdr_get
     _mock_data['hdr']['is_present'] = hdr_present
     _mock_data['dispatcher']['ds_select_dst'] = dispatcher_select_dst
@@ -156,6 +158,11 @@ def rpl_hdr_append(hdr: str):
         assert False
     print ("Setting reply hdr! (%s => %s)" % (result.group(1), result.group(2)))
     pending_changes.append({"key": "rpl_hdr_append(%s)" % result.group(1), "value": result.group(2)})
+
+
+def rmappend(hdr_key: str, hdr: str):
+    hdr_remove(hdr_key)
+    hdr_append(hdr)
 
 def rpl_hdr_append_apply(header: str, value: str):
     print ("Setting reply hdr! (%s => %s)" % (header, value))
@@ -350,6 +357,19 @@ def get_special_pvar(key):
             result = re.search("{uri.param,([^}]+)}$", text_op)
             uri = pvar_get("$(%s)"% text_op[:-len(result.group(0))])
             return get_param(uri, result.group(1))
+        if re.search("{json.parse,([^}]+)}$", text_op) is not None:
+            result = re.search("{json.parse,([^}]+)}$", text_op)
+            json_str = pvar_get("$(%s)" % text_op[:-len(result.group(0))])
+            json_key = result.group(1)
+            try:
+                import json
+                json_obj = json.loads(json_str)
+                if json_key in json_obj:
+                    return json_obj[json_key]
+                return None
+            except Exception as e:
+                print("JSON parse error: %s\n" % e)
+                return None
         if re.search("{param.value,([^}]+)}$", text_op) is not None:
             result = re.search("{param.value,([^}]+)}$", text_op)
             header = pvar_get("$(%s)" % text_op[:-len(result.group(0))])
@@ -632,6 +652,11 @@ def is_dsturiset():
 
 def is_invite():
     if pvar_get("$rm") == "INVITE":
+        return True
+    return False
+
+def is_info():
+    if pvar_get("$rm") == "INFO":
         return True
     return False
 
