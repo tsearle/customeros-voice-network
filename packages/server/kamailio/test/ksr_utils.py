@@ -42,7 +42,7 @@ def ksr_utils_init(_mock_data):
     _mock_data['htable']['sht_inc'] = sht_inc
     _mock_data['htable']['sht_sets'] = sht_set
     _mock_data['htable']['sht_seti'] = sht_seti
-    _mock_data['']['is_dsturiset'] = is_dsturiset
+    _mock_data['']['isdsturiset'] = isdsturiset
     _mock_data['']['is_INVITE'] = is_invite
     _mock_data['']['is_INFO'] = is_info
     _mock_data['']['is_KDMQ'] = is_kdmq
@@ -325,6 +325,10 @@ def get_special_pvar(key):
         return get_user(pvar_get("$ru"))
     elif key == "$rd":
         return get_domain(pvar_get("$ru"))
+    elif key == "$ct":
+        return hdr_vals["Contact"][0]
+    elif key == "$proto":
+        return pvar_get("$pr")
     elif re.search(r"^\$T_rpl\((.*)\)$", key) is not None:
         result = re.search(r"^\$T_rpl\((.*)\)$", key)
         hdr_key = result.group(1)
@@ -645,7 +649,7 @@ def siputils_has_to_tag():
     return 1
 
 
-def is_dsturiset():
+def isdsturiset():
     if pvar_get("$du") is None:
         return False
     return True
