@@ -145,6 +145,7 @@ def hdr_remove(hdr_key: str):
     pending_changes.append({"key": "hdr_remove", "value": hdr_key})
 
 def hdr_remove_apply(header: str):
+    print("Removing header %s" % header)
     if header in hdr_vals and len(hdr_vals[header]) > 0:
         hdr_vals[header].pop(0)
 
@@ -243,7 +244,7 @@ def resolve_xval(key):
         return pvar_get(key)
     return key
 
-SIPURI_REGEX = "^sip:(([^@:]+)@)?([^;?]+)(.*)$"
+SIPURI_REGEX = "^sip:(([^@:]+)@)?([^:;?]+)(:[^:;?]+)?(.*)$"
 def get_domain(uri: str):
     result = re.search(SIPURI_REGEX, uri)
     if result is not None:
@@ -258,7 +259,7 @@ def get_param(uri: str, param: str):
     if result is None:
         print("Parse error for uri (%s)\n" % (uri))
         assert (False)
-    param_list = result.group(4)
+    param_list = result.group(5)
     print("Param list of %s\n" % param_list)
     result = re.search(";%s=([^;]+)" % param, param_list)
     if result is None:
@@ -302,10 +303,10 @@ def set_domain(uri: str, domain: str):
 def set_user(uri: str, user: str):
     result = re.search(SIPURI_REGEX, uri)
     if result is not None:
-        if result.group(1) is None:
-            return "sip:" + user + "@" + result.group(3) + result.group(4)
+        if result.group(4) is None:
+            return "sip:" + user + "@" + result.group(3) + result.group(5)
         else:
-            return "sip:" + user + "@" + result.group(3) + result.group(4)
+            return "sip:" + user + "@" + result.group(3) + ":" + result.group(4) +result.group(5)
 
     print("Parse error for uri (%s)\n" % (uri))
     assert(False)
@@ -350,6 +351,9 @@ def get_special_pvar(key):
         if text_op.endswith("{uri.host}"):
             key = pvar_get("$(%s)"% text_op[:-len("{uri.host}")])
             return get_domain(key)
+        if text_op.endswith("{uri.transport}"):
+            uri = pvar_get("$(%s)"% text_op[:-len("{uri.transport}")])
+            return get_param(uri, "transport")
         if text_op.endswith("{nameaddr.uri}"):
             key = pvar_get("$(%s)"% text_op[:-len("{nameaddr.uri}")])
             result = re.search("<(.*)>", key)
@@ -744,10 +748,10 @@ def is_WS() -> bool:
     return False
 
 def is_TCP() -> bool:
-    return pvar_get("$pr") == "TCP"
+    return pvar_get("$pr").upper() == "TCP"
 
 def is_UDP() -> bool:
-    return pvar_get("$pr") == "UDP"
+    return pvar_get("$pr").upper() == "UDP"
 
 def is_TLS() -> bool:
-    return pvar_get("$pr") == "TLS"
+    return pvar_get("$pr").upper() == "TLS"
