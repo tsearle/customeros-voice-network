@@ -36,6 +36,7 @@ def ksr_utils_init(_mock_data):
     _mock_data['pv']['geti'] = pvar_geti
     _mock_data['pv']['sets'] = pvar_set
     _mock_data['pv']['seti'] = pvar_seti
+    _mock_data['pv']['unset'] = pvar_unset
     _mock_data['htable']['sht_get'] = sht_get
     _mock_data['htable']['sht_getw'] = sht_getw
     _mock_data['htable']['sht_gete'] = sht_gete
@@ -51,6 +52,7 @@ def ksr_utils_init(_mock_data):
     _mock_data['']['is_CANCEL'] = is_cancel
     _mock_data['']['is_REGISTER'] = is_register
     _mock_data['']['is_OPTIONS'] = is_options
+    _mock_data['']['is_UPDATE'] = is_update
     _mock_data['']['is_WS'] = is_WS
     _mock_data['']['is_TCP'] = is_TCP
     _mock_data['']['is_UDP'] = is_UDP
@@ -66,6 +68,7 @@ def ksr_utils_init(_mock_data):
     _mock_data['siputils']['has_totag'] = siputils_has_to_tag
     _mock_data['tmx']['t_precheck_trans'] = -1
     _mock_data['tm']['t_check_trans'] = -1
+    _mock_data['tm']['t_is_canceled'] = -1
     _mock_data['hdr']['append'] = hdr_append
     _mock_data['hdr']['append_to_reply'] = rpl_hdr_append
     _mock_data['hdr']['remove'] = hdr_remove
@@ -354,9 +357,13 @@ def get_special_pvar(key):
         if text_op.endswith("{uri.transport}"):
             uri = pvar_get("$(%s)"% text_op[:-len("{uri.transport}")])
             return get_param(uri, "transport")
+        if text_op.endswith("{nameaddr.name}"):
+            key = pvar_get("$(%s)" % text_op[:-len("{nameaddr.name}")])
+            result = re.search(r"^\s*(.*?)\s*<", key or "")
+            return result.group(1) if result is not None else ""
         if text_op.endswith("{nameaddr.uri}"):
             key = pvar_get("$(%s)"% text_op[:-len("{nameaddr.uri}")])
-            result = re.search("<(.*)>", key)
+            result = re.search("<(.*?)>", key)
             if result is not None:
                 return result.group(1)
             else:
@@ -372,8 +379,15 @@ def get_special_pvar(key):
             try:
                 import json
                 json_obj = json.loads(json_str)
-                if json_key in json_obj:
-                    return json_obj[json_key]
+                try:
+                    from jsonpath_ng import parse
+                except ImportError:
+                    # fall back to a plain top-level key lookup
+                    return json_obj.get(json_key)
+
+                matches = parse("$." + json_key).find(json_obj)
+                if matches:
+                    return matches[0].value
                 return None
             except Exception as e:
                 print("JSON parse error: %s\n" % e)
@@ -551,6 +565,11 @@ def pvar_set(key, value):
     pvar_vals[key] = value
     return 1
 
+def pvar_unset(key):
+    if key in pvar_vals:
+        del pvar_vals[key]
+    return True
+
 def pvar_seti(key, value):
     print("Value is of type %s\n" % type(value))
     assert(isinstance(value, int))
@@ -619,7 +638,7 @@ def sht_seti(table: str, key: int, value: Union[str,int]):
 def sht_get(table: str, key: str) -> Union[str,int]:
     val = pvar_get("$sht(%s=>%s)" % (table, key))
     if val is None:
-        if table in ["apbanctl", "blocklist", "preblockblocklist"]:
+        if table in ["apbanctl", "blocklist", "preblockblocklist", "apiban"]:
             return 0
     return val
 
@@ -699,6 +718,12 @@ def is_register():
 
 def is_options():
     if pvar_get("$rm") == "OPTIONS":
+        return True
+    return False
+
+
+def is_update():
+    if pvar_get("$rm") == "UPDATE":
         return True
     return False
 
